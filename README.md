@@ -1,3 +1,3 @@
-# learn-pub-sub-typescript-starter (Peril)
-
-This is the starter code used in Boot.dev's [Learn Pub/Sub](https://www.boot.dev/courses/learn-pub-sub-rabbitmq-typescript) course.
+npm run rabbit:start | run rabbit with docker
+npm run server | run server
+npm run client | run client
