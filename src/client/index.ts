@@ -20,6 +20,9 @@ import { publishJSON } from "../internal/pubsub/publish.js";
 export const rabbitConnString = "amqp://guest:guest@localhost:5672/";
 export const conn = await amqp.connect(rabbitConnString);
 
+
+
+
 async function main() {
   console.log("Peril game client connected to RabbitMQ!");
 
@@ -39,6 +42,7 @@ async function main() {
   const username = await clientWelcome();
   const gs = new GameState(username);
   const publishCh = await conn.createConfirmChannel();
+
 
   await subscribeJSON(
     conn,
@@ -64,7 +68,7 @@ async function main() {
     WarRecognitionsPrefix,
     `${WarRecognitionsPrefix}.*`,
     SimpleQueueType.Durable,
-    handlerWar(gs),
+    handlerWar(gs, publishCh),
   );
 
   while (true) {

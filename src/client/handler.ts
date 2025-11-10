@@ -1,3 +1,4 @@
+import amqp from "amqplib";
 import type { ConfirmChannel } from "amqplib";
 import type { ArmyMove, RecognitionOfWar } from "../internal/gamelogic/gamedata.js";
 import type {
@@ -9,8 +10,9 @@ import { handlePause } from "../internal/gamelogic/pause.js";
 import { publishJSON } from "../internal/pubsub/publish.js";
 import { ExchangePerilTopic, WarRecognitionsPrefix } from "../internal/routing/routing.js";
 import { handleWar, WarOutcome } from "../internal/gamelogic/war.js";
+import { publishGameLogs } from "./publishlogs.js";
 
-type AckType = "Ack" | "NackRequeue" | "NackDiscard"
+export type AckType = "Ack" | "NackRequeue" | "NackDiscard"
 
 export function handlerPause(gs: GameState): (ps: PlayingState) => Promise<AckType> {
   return async (ps: PlayingState): Promise<AckType> => {
@@ -60,28 +62,48 @@ export function handlerMove(
 }
 
 export function handlerWar(
-  gs: GameState,
+  gs: GameState, ch: amqp.ConfirmChannel
 ): (war: RecognitionOfWar) => Promise<AckType> {
   return async (war: RecognitionOfWar): Promise<AckType> => {
     try {
       const outcome = handleWar(gs, war);
+      let message = "";
 
       switch (outcome.result) {
         case WarOutcome.NotInvolved:
           return "NackRequeue";
+
         case WarOutcome.NoUnits:
           return "NackDiscard";
+
         case WarOutcome.YouWon:
         case WarOutcome.OpponentWon:
+          message = `${outcome.winner} won a war against ${outcome.loser}`;
+          break;
+
         case WarOutcome.Draw:
-          return "Ack";
+          message = `A war between ${outcome.attacker} and ${outcome.defender} resulted in a draw.`;
+          break;
+
         default:
           const unreachable: never = outcome;
           console.log("Unexpected war resolution: ", unreachable);
           return "NackDiscard";
       }
+
+      try {
+        await publishGameLogs(ch, gs.getUsername(), message);
+        return "Ack";
+      } catch (err) {
+        console.error("Failed to publish game log:", err);
+        return "NackRequeue";
+      }
+    } catch (err) {
+      console.error("Error handling war:", err);
+      return "NackDiscard";
     } finally {
       process.stdout.write("> ");
     }
   };
 }
+

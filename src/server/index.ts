@@ -2,7 +2,8 @@ import amqp from "amqplib";
 import { ExchangePerilDirect, ExchangePerilTopic, GameLogSlug, PauseKey } from "../internal/routing/routing.js";
 import { publishJSON } from "../internal/pubsub/publish.js";
 import { getInput, printServerHelp } from "../internal/gamelogic/gamelogic.js";
-import { declareAndBind, SimpleQueueType } from "../internal/pubsub/subscribe.js";
+import { declareAndBind, SimpleQueueType, subscribeMsgPack } from "../internal/pubsub/subscribe.js";
+import { handlerLog } from "./handlerserv.js";
 
 
 async function main() {
@@ -14,6 +15,12 @@ async function main() {
   await channel.assertExchange(ExchangePerilDirect, "direct", { durable: true })
 
   await declareAndBind(connection, ExchangePerilTopic, GameLogSlug, "game_logs.*", SimpleQueueType.Durable)
+  await subscribeMsgPack(connection,
+    ExchangePerilTopic,
+    GameLogSlug,
+    `${GameLogSlug}.*`,
+    SimpleQueueType.Durable,
+    handlerLog())
 
   while (true) {
     const [command] = await getInput()
