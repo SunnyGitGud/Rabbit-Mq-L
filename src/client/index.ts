@@ -3,6 +3,7 @@ import {
   clientWelcome,
   commandStatus,
   getInput,
+  getMaliciousLog,
   printClientHelp,
   printQuit,
 } from "../internal/gamelogic/gamelogic.js";
@@ -10,12 +11,15 @@ import {
   SimpleQueueType,
   subscribeJSON,
 } from "../internal/pubsub/subscribe.js";
-import { ArmyMovesPrefix, ExchangePerilDirect, ExchangePerilTopic, PauseKey, WarRecognitionsPrefix } from "../internal/routing/routing.js";
+import { ArmyMovesPrefix, ExchangePerilDirect, ExchangePerilTopic, GameLogSlug, PauseKey, WarRecognitionsPrefix } from "../internal/routing/routing.js";
 import { GameState } from "../internal/gamelogic/gamestate.js";
 import { commandSpawn } from "../internal/gamelogic/spawn.js";
 import { commandMove } from "../internal/gamelogic/move.js";
 import { handlerMove, handlerPause, handlerWar } from "./handler.js"
 import { publishJSON } from "../internal/pubsub/publish.js";
+import { spawn } from "child_process";
+import { log } from "console";
+import { publishGameLogs } from "./publishlogs.js";
 
 export const rabbitConnString = "amqp://guest:guest@localhost:5672/";
 export const conn = await amqp.connect(rabbitConnString);
@@ -103,7 +107,32 @@ async function main() {
       printQuit();
       process.exit(0);
     } else if (command === "spam") {
-      console.log("Spamming not allowed yet!");
+      if (words.length < 2) {
+        console.log("usage: spam <n>");
+        continue;
+      }
+      const raw = words[1];
+      if (!raw) {
+        console.log("usage: spam <n>");
+        continue;
+      }
+      const n = parseInt(raw, 10);
+      if (isNaN(n)) {
+        console.log(`error: ${words[1]} is not a valid number`);
+        continue;
+      }
+      for (let i = 0; i < n; i++) {
+        try {
+          publishGameLogs(publishCh, gs.getUsername(), getMaliciousLog());
+        } catch (err) {
+          console.error(
+            "Failed to publish spam message:",
+            (err as Error).message,
+          );
+          continue;
+        }
+      }
+      console.log(`Published ${n} malicious logs`);
     } else {
       console.log("Unknown command");
       continue;

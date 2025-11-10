@@ -10,6 +10,11 @@ async function main() {
   const rabbitURL = "amqp://guest:guest@localhost:5672/";
   const connection = await amqp.connect(rabbitURL);
   console.log("Connected to RabbitMQ successfully");
+  // Used to run the server from a non-interactive source, like the multiserver.sh file
+  if (!process.stdin.isTTY) {
+    console.log("Non-interactive mode: skipping command input.");
+    return;
+  }
   printServerHelp()
   const channel = await connection.createConfirmChannel()
   await channel.assertExchange(ExchangePerilDirect, "direct", { durable: true })
